@@ -3,7 +3,7 @@ const request = require('request-promise');
 module.exports = async (site, urlList, token) => {
   const data = {
     siteUrl: site,
-    urlList: urlList
+    urlList
   };
 
   try {
@@ -16,8 +16,8 @@ module.exports = async (site, urlList, token) => {
       json: data
     });
 
-    console.log(`🎉bing response : ${JSON.stringify(res)}`);
+    console.log(`bing response: ${JSON.stringify(res)}`);
   } catch (error) {
-    console.log(`❌bing error : ${JSON.stringify(error)}`);
+    console.log(`bing error: ${JSON.stringify(error.message || error)}`);
   }
 };

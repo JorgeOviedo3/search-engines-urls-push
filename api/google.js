@@ -1,25 +1,34 @@
 const request = require('request-promise');
 const { google } = require('googleapis');
 
-module.exports = async (urlList, clientEmail, key) => {
-  try {
-    const jwtClient = new google.auth.JWT(
-      clientEmail,
-      null,
-      // 巨坑 https://stackoverflow.com/questions/51020113/nodejs-google-pem-routinespem-read-biono-start-line
-      key.replace(new RegExp('\\\\n', 'g'), '\n'),
-      ['https://www.googleapis.com/auth/indexing'],
-      null
-    );
+function authorize(clientEmail, key) {
+  const jwtClient = new google.auth.JWT(
+    clientEmail,
+    null,
+    key.replace(/\\n/g, '\n'),
+    ['https://www.googleapis.com/auth/indexing'],
+    null
+  );
 
-    jwtClient.authorize((err, tokens) => {
-      if (err) {
-        console.log(`❌google authorize error: ${JSON.stringify(err)}`);
+  return new Promise((resolve, reject) => {
+    jwtClient.authorize((error, tokens) => {
+      if (error) {
+        reject(error);
         return;
       }
 
-      urlList.map(async url => {
-        let options = {
+      resolve(tokens);
+    });
+  });
+}
+
+module.exports = async (urlList, clientEmail, key) => {
+  try {
+    const tokens = await authorize(clientEmail, key);
+
+    const responses = await Promise.all(
+      urlList.map(url =>
+        request({
           url: 'https://indexing.googleapis.com/v3/urlNotifications:publish',
           method: 'POST',
           headers: {
@@ -27,16 +36,17 @@ module.exports = async (urlList, clientEmail, key) => {
           },
           auth: { bearer: tokens.access_token },
           json: {
-            url: url,
+            url,
             type: 'URL_UPDATED'
           }
-        };
+        })
+      )
+    );
 
-        const res = await request(options);
-        console.log(`🎉google response : ${JSON.stringify(res)}`);
-      });
+    responses.forEach(response => {
+      console.log(`google response: ${JSON.stringify(response)}`);
     });
   } catch (error) {
-    console.log(`❌google error : ${JSON.stringify(error)}`);
+    console.log(`google error: ${JSON.stringify(error.message || error)}`);
   }
 };
